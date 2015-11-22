@@ -16,7 +16,6 @@ import java.io.IOException;
  */
 public class UserInterface extends JFrame {
     private JLabel imageLabel;
-    //private JLabel encryptedImageLabel;
 
     private JButton encryptButton;
     private JButton decryptButton;
@@ -36,7 +35,6 @@ public class UserInterface extends JFrame {
         imageLabel = new JLabel();
         imageFilePathLabel = new JLabel("no image");
         imageFilePathLabel.setHorizontalAlignment(JLabel.CENTER);
-        //encryptedImageLabel = new JLabel();
         arrangeComponents();
         setSize(800,600);
 
