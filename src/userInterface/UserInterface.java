@@ -1,15 +1,22 @@
 package userInterface;
 
 import imageProcessing.PNGProcesser;
+import rsaEncryption.AESEncryption;
+import rsaEncryption.RSAEncryption;
 
+import javax.crypto.SecretKey;
 import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
-import java.awt.datatransfer.StringSelection;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.util.Arrays;
 
 /**
  * Created by Arnold on 2015-11-22.
@@ -36,7 +43,7 @@ public class UserInterface extends JFrame {
         imageFilePathLabel = new JLabel("no image");
         imageFilePathLabel.setHorizontalAlignment(JLabel.CENTER);
         arrangeComponents();
-        setSize(800,600);
+        setSize(800, 600);
 
     }
 
@@ -44,10 +51,12 @@ public class UserInterface extends JFrame {
         JMenuBar menuBar = new JMenuBar();
         JMenu menu = new JMenu("File");
         JMenuItem openFileItem = new JMenuItem("Open");
-        JMenuItem generateKeysItem = new JMenuItem("Generate keys");
+        JMenuItem generateRSAKeysItem = new JMenuItem("Generate RSA keys");
+        JMenuItem genetateAESkeyItem = new JMenuItem("Generate AES key");
         JMenuItem CloseItem = new JMenuItem("Close");
         openFileItem.addActionListener(new OpenFileAction());
-        generateKeysItem.addActionListener(new GenerateKeysAction());
+        generateRSAKeysItem.addActionListener(new GenerateRSAkeysAction());
+        genetateAESkeyItem.addActionListener(new GenerateAESkeyAction());
         CloseItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -55,7 +64,8 @@ public class UserInterface extends JFrame {
             }
         });
         menu.add(openFileItem);
-        menu.add(generateKeysItem);
+        menu.add(generateRSAKeysItem);
+        menu.add(genetateAESkeyItem);
         menu.add(CloseItem);
         setJMenuBar(menuBar);
         menuBar.add(menu);
@@ -86,7 +96,7 @@ public class UserInterface extends JFrame {
         buttonPanel.add(saveButton);
         JPanel imagePanel = new JPanel();
         imagePanel.setLayout(new BorderLayout());
-        imagePanel.add(new JScrollPane(imageLabel),BorderLayout.CENTER);
+        imagePanel.add(new JScrollPane(imageLabel), BorderLayout.CENTER);
         imagePanel.add(imageFilePathLabel, BorderLayout.NORTH);
         add(imagePanel, BorderLayout.CENTER);
         add(buttonPanel, BorderLayout.NORTH);
@@ -101,14 +111,16 @@ public class UserInterface extends JFrame {
             if (result == JFileChooser.APPROVE_OPTION) {
                 imageFilePath = fileChooser.getSelectedFile().getPath();
                 imageFilePathLabel.setText(imageFilePath);
-                imageLabel.setIcon(new ImageIcon(imageFilePath));
+                //imageLabel.setIcon(new ImageIcon(imageFilePath));
                 imageLabel.setHorizontalAlignment(JLabel.CENTER);
                 saveButton.setEnabled(true);
                 encryptButton.setEnabled(true);
                 decryptButton.setEnabled(true);
-                try{
+                setTitle(imageFilePath);
+                try {
                     pngProcesser = new PNGProcesser(imageFilePath);
-                } catch (IOException exception){
+                    imageLabel.setIcon(new ImageIcon(pngProcesser.toBufferedImage()));
+                } catch (IOException exception) {
                     exception.printStackTrace();
                 }
                 //wczytanie obiektu Mat
@@ -116,17 +128,42 @@ public class UserInterface extends JFrame {
         }
     }
 
-    private class GenerateKeysAction implements ActionListener {
+    private class GenerateRSAkeysAction implements ActionListener {
         @Override
         public void actionPerformed(ActionEvent e) {
+            RSAEncryption.generateKey();
+        }
+    }
 
+    private class GenerateAESkeyAction implements ActionListener {
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            AESEncryption.generateKey();
         }
     }
 
     private class EncryptAction implements ActionListener {
         @Override
         public void actionPerformed(ActionEvent e) {
-            //
+            if (!RSAEncryption.areKeysPresent())
+                JOptionPane.showMessageDialog(null, "Brakuje klucza do szyfrowania RSA");
+            else {
+                ObjectInputStream input = null;
+                PublicKey publicKey;
+                String pathToKey = System.getProperty("user.dir") + RSAEncryption.PUBLIC_KEY_FILE;
+                try {
+                    input = new ObjectInputStream(new FileInputStream(pathToKey));
+                    publicKey = (PublicKey) input.readObject();
+                    byte[] data = pngProcesser.getImageValueArray();
+                    byte[] encryptedData = RSAEncryption.encrypt(data, publicKey);
+                    System.out.println(encryptedData.length);
+
+                    //pngProcesser.setImageMatValues(encryptedData);
+                    //imageLabel.setIcon(new ImageIcon(encryptedData));
+                } catch (Exception exception) {
+                    exception.printStackTrace();
+                }
+            }
         }
     }
 
@@ -141,9 +178,11 @@ public class UserInterface extends JFrame {
         @Override
         public void actionPerformed(ActionEvent e) {
             fileChooser.setCurrentDirectory(new File("."));
-            int result  = fileChooser.showSaveDialog(null);
-            if (result == JFileChooser.APPROVE_OPTION){
+            int result = fileChooser.showSaveDialog(null);
+            if (result == JFileChooser.APPROVE_OPTION) {
                 String newFilePath = fileChooser.getSelectedFile().getPath();
+                pngProcesser.getImageValueArray();
+
                 pngProcesser.saveImage(newFilePath);
             }
         }

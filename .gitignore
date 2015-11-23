@@ -2,3 +2,4 @@
 out/
 #ignore .idea files, that's from intellij settings
 .idea/
+key*/

@@ -104,7 +104,41 @@ public class PNGProcesser {
         System.arraycopy(buffer, 0, targetPixels, 0, buffer.length);
         return image;
     }
+
+    public  BufferedImage toBufferedImage() {
+        int type = BufferedImage.TYPE_BYTE_GRAY;
+        if (imageData.channels() > 1) {
+            type = BufferedImage.TYPE_3BYTE_BGR;
+        }
+        int bufferSize = imageData.channels() * imageData.cols() * imageData.rows();
+        byte[] buffer = new byte[bufferSize];
+        imageData.get(0, 0, buffer); // get all the pixels
+        BufferedImage image = new BufferedImage(imageData.cols(), imageData.
+                rows(), type);
+        //targetPixels reprezentuje bufor danych(tablice bajtow) obiektu image
+        final byte[] targetPixels = ((DataBufferByte) image.getRaster().
+                getDataBuffer()).getData();
+        //szybkie kopiowanie do bufora danych obiektu image z bufora
+        System.arraycopy(buffer, 0, targetPixels, 0, buffer.length);
+        return image;
+    }
+
+    public byte[] getImageValueArray(){
+        int type = BufferedImage.TYPE_BYTE_GRAY;
+        if (imageData.channels() > 1) {
+            type = BufferedImage.TYPE_3BYTE_BGR;
+        }
+        int bufferSize = imageData.channels() * imageData.cols() * imageData.rows();
+        byte[] buffer = new byte[bufferSize];
+        imageData.get(0, 0, buffer); // get all the pixels
+        return buffer;
+    }
+    public void setImageMatValues(byte[] values){
+        imageData.put(0,0,values);
+    }
+
     public void saveImage(String filename){
         Imgcodecs.imwrite(filename, imageData);
     }
+
 }
