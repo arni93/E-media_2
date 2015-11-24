@@ -28,6 +28,8 @@ public class EncryptionTest {
         String publicKeyPath = System.getProperty("user.dir") + RSAEncryption.PUBLIC_KEY_FILE;
         String privateKeyPath = System.getProperty("user.dir") + RSAEncryption.PRIVATE_KEY_FILE;
 
+
+        /*
         try {
             PNGProcesser pngProcesser = new PNGProcesser(path);
             publicKeyInput = new ObjectInputStream(new FileInputStream(publicKeyPath));
@@ -50,6 +52,7 @@ public class EncryptionTest {
             pngProcesser.setImageMatValues(encryptedImage);
             //pngProcesser.saveImage(path2);
             System.err.println();
+            */
             /*
             for (int i = 0; i < loopEnd; i++) {
                 //szyfrowanie
@@ -65,11 +68,11 @@ public class EncryptionTest {
                 System.out.println("czy zgodne: " + Arrays.equals(usedDataSegment, decryptedData));
 
             }
-            */
+
 
         } catch (Exception exeption) {
             exeption.printStackTrace();
         }
-
+        */
     }
 }

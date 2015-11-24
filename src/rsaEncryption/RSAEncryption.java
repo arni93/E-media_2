@@ -2,9 +2,9 @@ package rsaEncryption;
 
 import javax.crypto.Cipher;
 import javax.crypto.NoSuchPaddingException;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.ObjectOutputStream;
+import java.io.*;
+import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
 import java.security.*;
 import java.util.Arrays;
 import java.util.NoSuchElementException;
@@ -125,16 +125,34 @@ public class RSAEncryption {
         return encryptedImage;
     }
 
+    private static byte[] getByteArray(int width, int height, int colorType, int additionalDataLength) {
+        ByteBuffer buffer = ByteBuffer.allocate(16);
+        buffer.putInt(width);
+        buffer.putInt(height);
+        buffer.putInt(colorType);
+        buffer.putInt(additionalDataLength);
+        return buffer.array();
+    }
+
+    private static int[] getIntArray(byte[] data) {
+        int intCount = data.length / 4;
+        ByteBuffer buffer = ByteBuffer.wrap(data);
+        int[] intArray = new int[intCount];
+        for (int i = 0; i < intCount; i++){
+           intArray[i] = buffer.getInt();
+        }
+        return intArray;
+    }
+
     public static byte[] decryptImage(byte[] data, PrivateKey key) {
         int segmentsNumber = data.length / (ENCRYPTED_DATA_SEGMENT + 1);
         int bufforSize;
         byte[] lastBlock = Arrays.copyOfRange(data,
-                (segmentsNumber-1)*(ENCRYPTED_DATA_SEGMENT+1),segmentsNumber*(ENCRYPTED_DATA_SEGMENT));
+                (segmentsNumber - 1) * (ENCRYPTED_DATA_SEGMENT + 1), segmentsNumber * (ENCRYPTED_DATA_SEGMENT));
         //odkoduj koniec pliku, zeby wiedziec ile pamieci dokladnie zaalokowac dla rezultatu globalnego
-        byte [] endingBytes = RSAEncryption.decrypt(lastBlock,key);
-        bufforSize = (segmentsNumber-1)*DATA_SEGMENT + endingBytes.length;
+        byte[] endingBytes = RSAEncryption.decrypt(lastBlock, key);
+        bufforSize = (segmentsNumber - 1) * DATA_SEGMENT + endingBytes.length;
         byte[] decryptedImage = new byte[bufforSize];
-
 
 
         return decryptedImage;
