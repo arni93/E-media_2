@@ -76,16 +76,17 @@ public class RSAEncryption {
         return encryptedData;
     }
 
-    public static byte[] encrypt(byte[] data, int start, int offset, PublicKey key) {
-        byte[] encryptedData = null;
+
+    public static byte[] decrypt(byte[] data, PrivateKey key) {
+        byte[] decryptedData = null;
         try {
             final Cipher cipher = Cipher.getInstance(ALGORITHM);
-            cipher.init(Cipher.ENCRYPT_MODE, key);
-            encryptedData = cipher.doFinal(data, start, offset);
+            cipher.init(Cipher.DECRYPT_MODE, key);
+            decryptedData = cipher.doFinal(data);
         } catch (Exception exception) {
             exception.printStackTrace();
         }
-        return encryptedData;
+        return decryptedData;
     }
 
 
@@ -166,29 +167,17 @@ public class RSAEncryption {
                 decryptedImage[i * DATA_SEGMENT + k] = decryptedDataSegment[k];
             }
         }
-
         int imageType;
         if (channels == 1)
             imageType = CvType.CV_8UC1;
         else imageType = CvType.CV_8UC3;
 
-        Mat decryptedImageMat = new Mat(width,height,imageType);
+        Mat decryptedImageMat = new Mat(height,width,imageType);
         decryptedImageMat.put(0,0,decryptedImage);
 
         return decryptedImageMat;
     }
 
-    public static byte[] decrypt(byte[] data, PrivateKey key) {
-        byte[] decryptedData = null;
-        try {
-            final Cipher cipher = Cipher.getInstance(ALGORITHM);
-            cipher.init(Cipher.DECRYPT_MODE, key);
-            decryptedData = cipher.doFinal(data);
-        } catch (Exception exception) {
-            exception.printStackTrace();
-        }
-        return decryptedData;
-    }
 
     private static byte[] getByteArray(int width, int height, int channels, int additionalDataLength) {
         ByteBuffer buffer = ByteBuffer.allocate(16);
@@ -244,7 +233,6 @@ public class RSAEncryption {
 
 
 }
-
 
 class HeaderInfo {
     private int height;
