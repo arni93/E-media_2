@@ -2,6 +2,8 @@ package rsaEncryption;
 
 import imageProcessing.PNGProcesser;
 import org.opencv.core.Core;
+import org.opencv.core.Mat;
+import org.opencv.imgcodecs.Imgcodecs;
 
 import javax.crypto.SecretKey;
 import java.io.*;
@@ -19,7 +21,8 @@ public class EncryptionTest {
 
     public static void main(String[] args) {
         String path = "C:\\IdeaProjects\\java\\E-media 2\\obraz1.png";
-        String path2 = path + "(2)";
+        String path2 = "C:\\IdeaProjects\\java\\E-media 2\\obraz1_encrypted.png";
+        ;
         byte[] imageData;
         ObjectInputStream publicKeyInput = null;
         ObjectInputStream privateKeyInput = null;
@@ -29,50 +32,26 @@ public class EncryptionTest {
         String privateKeyPath = System.getProperty("user.dir") + RSAEncryption.PRIVATE_KEY_FILE;
 
 
-        /*
         try {
-            PNGProcesser pngProcesser = new PNGProcesser(path);
+            Mat image = Imgcodecs.imread(path);
+            Mat encryptedImage;
+            Mat decryptedImage;
             publicKeyInput = new ObjectInputStream(new FileInputStream(publicKeyPath));
             publicKey = (PublicKey) publicKeyInput.readObject();
             privateKeyInput = new ObjectInputStream(new FileInputStream(privateKeyPath));
             privateKey = (PrivateKey) privateKeyInput.readObject();
 
-            imageData = pngProcesser.getImageValueArray();
-            int loopEnd = imageData.length / 117;
-            byte[] buffor = new byte[129];
-
-            byte[] encryptedImage = RSAEncryption.encryptImage(imageData, publicKey);
-            byte[] decryptedImage = RSAEncryption.decryptImage(encryptedImage, privateKey);
-
-            System.out.println(imageData.length);
-            System.out.println(decryptedImage.length);
-            System.out.println(encryptedImage.length);
-            System.out.println(imageData.length % 117);
-            System.out.println(encryptedImage.length % 129);
-            pngProcesser.setImageMatValues(encryptedImage);
-            //pngProcesser.saveImage(path2);
-            System.err.println();
-            */
-            /*
-            for (int i = 0; i < loopEnd; i++) {
-                //szyfrowanie
-
-
-                byte[] usedDataSegment = Arrays.copyOfRange(imageData, i * 117, (i + 1) * 117);
-                byte[] encryptedData = RSAEncryption.encrypt(usedDataSegment, publicKey);
-                System.out.println("Iteration: " + i);
-                System.out.println("UsedDataSegmentlength: " + usedDataSegment.length);
-                System.out.println("Encryptedbuffor lenght: " + encryptedData.length);
-                byte[] decryptedData = RSAEncryption.decrypt(encryptedData, privateKey);
-                System.out.println("DecryptedBuffor Length: " + decryptedData.length);
-                System.out.println("czy zgodne: " + Arrays.equals(usedDataSegment, decryptedData));
-
-            }
+            encryptedImage = RSAEncryption.encryptImage(image, publicKey);
+            decryptedImage = RSAEncryption.decryptImage(encryptedImage, privateKey);
+            System.out.println(PNGProcesser.getImageValueArray(image).length);
+            System.out.println(PNGProcesser.getImageValueArray(decryptedImage).length);
+            System.out.println(Arrays.equals(PNGProcesser.getImageValueArray(image),PNGProcesser.getImageValueArray(decryptedImage)));
+            //Imgcodecs.imwrite(path2,encryptedImage);
 
 
         } catch (Exception exeption) {
             exeption.printStackTrace();
         }
-        */
+
     }
 }

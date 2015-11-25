@@ -1,13 +1,14 @@
 package rsaEncryption;
 
+import imageProcessing.PNGProcesser;
+import org.opencv.core.CvType;
+import org.opencv.core.Mat;
+
 import javax.crypto.Cipher;
-import javax.crypto.NoSuchPaddingException;
 import java.io.*;
 import java.nio.ByteBuffer;
-import java.nio.IntBuffer;
 import java.security.*;
 import java.util.Arrays;
-import java.util.NoSuchElementException;
 
 /**
  * Created by Arnold on 2015-11-22.
@@ -87,75 +88,94 @@ public class RSAEncryption {
         return encryptedData;
     }
 
-    public static byte[] encryptImage(byte[] data, PublicKey key) {
-        int loopEnd = data.length / RSAEncryption.DATA_SEGMENT;
+
+    public static Mat encryptImage(Mat mat, PublicKey key) {
+        byte[] data = PNGProcesser.getImageValueArray(mat);
+        int channels = mat.channels(); //channels number
+        int loopEnd = (data.length / RSAEncryption.DATA_SEGMENT);
+        int blocksNumber = loopEnd + 1; //+1 is from header information
         int endingDataLength = data.length % RSAEncryption.DATA_SEGMENT;
-        //count how big byte[] array we need
-        int bufforSize = (loopEnd + 1) * (ENCRYPTED_DATA_SEGMENT + 1);
-        if (endingDataLength == 0) {
-            bufforSize = loopEnd * (ENCRYPTED_DATA_SEGMENT + 1);
-        }
+        if (endingDataLength != 0)
+            blocksNumber++;
+        int bufforSize = blocksNumber * (ENCRYPTED_DATA_SEGMENT);
+        HeaderInfo encryptedImageInfo = getHeaderInfo(bufforSize, channels);
+        int additionalBytes = encryptedImageInfo.getAdditionalBytes();
+        bufforSize += additionalBytes;
 
-        //keeps portion of encrypted data and add 0 at End
-        byte[] encryptedDataSegment; //of length 128
-        //Data segment of data array
-        byte[] DataSegment; //length DATA_SEGMENT or other at the end
-        byte[] encryptedImage = new byte[bufforSize]; //whole encrypted Image
 
+        byte[] header = getByteArray(mat.cols(), mat.rows(), mat.channels(), additionalBytes);
+        byte[] encryptedDataSegment = null; //of length 128
+        byte[] dataSegment = null; //length DATA_SEGMENT or less at end
+        byte[] encryptedImage = new byte[bufforSize];
+        //add encrypted header info
+        encryptedDataSegment = encrypt(header, key);
+        for (int k = 0; k < ENCRYPTED_DATA_SEGMENT; k++)
+            encryptedImage[k] = encryptedDataSegment[k];
+        //add full blocks
         for (int i = 0; i < loopEnd; i++) {
-            DataSegment = Arrays.copyOfRange(data, i * DATA_SEGMENT, (i + 1) * DATA_SEGMENT);
-            encryptedDataSegment = encrypt(DataSegment, key);
+            dataSegment = Arrays.copyOfRange(data, i * DATA_SEGMENT, (i + 1) * DATA_SEGMENT);
+            encryptedDataSegment = encrypt(dataSegment, key);
             //copy result to global result
             for (int k = 0; k < ENCRYPTED_DATA_SEGMENT; k++) {
-                encryptedImage[i * (ENCRYPTED_DATA_SEGMENT + 1) + k] = encryptedDataSegment[k];
+                encryptedImage[(i + 1) * ENCRYPTED_DATA_SEGMENT + k] = encryptedDataSegment[k];
             }
-            //add zero at end
-            encryptedImage[(i + 1) * (ENCRYPTED_DATA_SEGMENT + 1) - 1] = 0;
         }
-        //add ending
+        //add ending if exist
         if (endingDataLength != 0) {
             byte[] endingSegment = Arrays.copyOfRange(data, DATA_SEGMENT * loopEnd, data.length);
             encryptedDataSegment = encrypt(endingSegment, key);
             for (int k = 0; k < DATA_SEGMENT; k++) {
-                encryptedImage[loopEnd * (ENCRYPTED_DATA_SEGMENT + 1) + k] = encryptedDataSegment[k];
+                encryptedImage[(loopEnd + 1) * ENCRYPTED_DATA_SEGMENT + k] = encryptedDataSegment[k];
             }
-            //add zero
-            encryptedImage[(loopEnd + 1) * (ENCRYPTED_DATA_SEGMENT + 1) - 1] = 0;
         }
-        return encryptedImage;
-    }
-
-    private static byte[] getByteArray(int width, int height, int colorType, int additionalDataLength) {
-        ByteBuffer buffer = ByteBuffer.allocate(16);
-        buffer.putInt(width);
-        buffer.putInt(height);
-        buffer.putInt(colorType);
-        buffer.putInt(additionalDataLength);
-        return buffer.array();
-    }
-
-    private static int[] getIntArray(byte[] data) {
-        int intCount = data.length / 4;
-        ByteBuffer buffer = ByteBuffer.wrap(data);
-        int[] intArray = new int[intCount];
-        for (int i = 0; i < intCount; i++){
-           intArray[i] = buffer.getInt();
+        //add remaining bytes
+        for (int i = bufforSize - additionalBytes; i < bufforSize; i++) {
+            encryptedImage[i] = (byte) (255 * Math.random());
         }
-        return intArray;
+        int imageType;
+        if (mat.channels() == 3)
+            imageType = CvType.CV_8UC3;
+        else imageType = CvType.CV_8UC1;
+
+        Mat encryptedImageMatrix = new Mat(encryptedImageInfo.getHeight(), encryptedImageInfo.getWidth(), imageType);
+        encryptedImageMatrix.put(0, 0, encryptedImage);
+        return encryptedImageMatrix;
     }
 
-    public static byte[] decryptImage(byte[] data, PrivateKey key) {
-        int segmentsNumber = data.length / (ENCRYPTED_DATA_SEGMENT + 1);
-        int bufforSize;
-        byte[] lastBlock = Arrays.copyOfRange(data,
-                (segmentsNumber - 1) * (ENCRYPTED_DATA_SEGMENT + 1), segmentsNumber * (ENCRYPTED_DATA_SEGMENT));
-        //odkoduj koniec pliku, zeby wiedziec ile pamieci dokladnie zaalokowac dla rezultatu globalnego
-        byte[] endingBytes = RSAEncryption.decrypt(lastBlock, key);
-        bufforSize = (segmentsNumber - 1) * DATA_SEGMENT + endingBytes.length;
-        byte[] decryptedImage = new byte[bufforSize];
 
+    public static Mat decryptImage(Mat mat, PrivateKey key) {
+        byte[] data = PNGProcesser.getImageValueArray(mat);
 
-        return decryptedImage;
+        byte[] encryptedDataSegment;
+        byte[] decryptedDataSegment;
+        byte[] decryptedImage;
+        //decrypt first block of data to know image resolution
+        encryptedDataSegment = Arrays.copyOfRange(data, 0, ENCRYPTED_DATA_SEGMENT);
+        int[] encodedImageInfo = getIntArray(RSAEncryption.decrypt(encryptedDataSegment, key));
+        int width = encodedImageInfo[0];
+        int height = encodedImageInfo[1];
+        int channels = encodedImageInfo[2];
+        int additionalBytes = encodedImageInfo[3];
+        int bufforLength = width * height * channels;
+        decryptedImage = new byte[bufforLength];
+        int encryptedBlocks = (data.length - (ENCRYPTED_DATA_SEGMENT + additionalBytes)) / ENCRYPTED_DATA_SEGMENT;
+        for (int i = 0; i < encryptedBlocks -1 ; i++) {
+            encryptedDataSegment = Arrays.copyOfRange(data, (i + 1) * ENCRYPTED_DATA_SEGMENT, (i + 2) * ENCRYPTED_DATA_SEGMENT);
+            decryptedDataSegment = RSAEncryption.decrypt(encryptedDataSegment, key);
+            for (int k = 0; k < DATA_SEGMENT; k++) {
+                decryptedImage[i * DATA_SEGMENT + k] = decryptedDataSegment[k];
+            }
+        }
+
+        int imageType;
+        if (channels == 1)
+            imageType = CvType.CV_8UC1;
+        else imageType = CvType.CV_8UC3;
+
+        Mat decryptedImageMat = new Mat(width,height,imageType);
+        decryptedImageMat.put(0,0,decryptedImage);
+
+        return decryptedImageMat;
     }
 
     public static byte[] decrypt(byte[] data, PrivateKey key) {
@@ -170,4 +190,104 @@ public class RSAEncryption {
         return decryptedData;
     }
 
+    private static byte[] getByteArray(int width, int height, int channels, int additionalDataLength) {
+        ByteBuffer buffer = ByteBuffer.allocate(16);
+        buffer.putInt(width);
+        buffer.putInt(height);
+        buffer.putInt(channels);
+        buffer.putInt(additionalDataLength);
+        return buffer.array();
+    }
+
+    private static int[] getIntArray(byte[] data) {
+        int intCount = data.length / 4;
+        ByteBuffer buffer = ByteBuffer.wrap(data);
+        int[] intArray = new int[intCount];
+        for (int i = 0; i < intCount; i++) {
+            intArray[i] = buffer.getInt();
+        }
+        return intArray;
+    }
+
+
+    private static HeaderInfo getHeaderInfo(int bufforSize, int channels) {
+        int newWidth;
+        int newHeight;
+        int additionalBytes;
+        if (channels == 3) {
+            int n, m;
+            int minPixelNumber = (bufforSize / 3) + 1;
+            n = ((int) Math.sqrt(minPixelNumber)) + 1; // n^2 na pewno wieksze od data.length
+            m = n;
+            while (m * n * 3 < bufforSize)
+                n++;
+            newWidth = n;
+            newHeight = m;
+            additionalBytes = newWidth * newHeight * 3 - bufforSize;
+
+        } else { //channel == 1
+            int n, m;
+            n = ((int) Math.sqrt(bufforSize)) + 1; // n^2 na pewno wieksze od data.length
+            if (n * (n - 1) >= bufforSize)
+                m = n - 1;
+            else {
+                m = n;
+            }
+            newWidth = n;
+            newHeight = m;
+            additionalBytes = newWidth * newHeight - bufforSize;
+        }
+
+
+        return new HeaderInfo(newHeight, newWidth, channels, additionalBytes);
+    }
+
+
+}
+
+
+class HeaderInfo {
+    private int height;
+    private int width;
+    private int channels;
+    private int additionalBytes;
+
+    public HeaderInfo(int height, int width, int channels, int additionalInfo) {
+        this.height = height;
+        this.width = width;
+        this.channels = channels;
+        this.additionalBytes = additionalInfo;
+    }
+
+    public int getHeight() {
+        return height;
+    }
+
+    public void setHeight(int height) {
+        this.height = height;
+    }
+
+    public int getWidth() {
+        return width;
+    }
+
+    public void setWidth(int width) {
+        this.width = width;
+    }
+
+    public int getChannels() {
+        return channels;
+    }
+
+    public void setChannels(int channels) {
+        this.channels = channels;
+    }
+
+    public int getAdditionalBytes() {
+        return additionalBytes;
+    }
+
+    public void setAdditionalBytes(int additionalBytes) {
+        this.additionalBytes = additionalBytes;
+    }
 }

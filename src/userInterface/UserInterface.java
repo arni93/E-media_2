@@ -32,6 +32,7 @@ public class UserInterface extends JFrame {
     private String imageFilePath;
     private JLabel imageFilePathLabel;
     private PNGProcesser pngProcesser;
+    
 
     public UserInterface() {
         createFileChooser("PNG images", "png");
